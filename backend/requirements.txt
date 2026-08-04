@@ -4,12 +4,11 @@ python-multipart
 numpy
 Pillow
 python-dotenv
-tensorflow
+tensorflow-cpu
 pypdf
 langchain
 langchain-groq
 langchain-chroma
 langchain-community
-langchain-huggingface
 chromadb
-sentence-transformers
+fastembed
