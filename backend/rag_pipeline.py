@@ -3,18 +3,14 @@ import re
 from dotenv import load_dotenv
 from pypdf import PdfReader
 from langchain_groq import ChatGroq
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema.output_parser import StrOutputParser
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
-from langchain.schema import Document
+from langchain_core.documents import Document
 
 # Use the new HuggingFaceEmbeddings from langchain-huggingface if available
-try:
-    from langchain_huggingface import HuggingFaceEmbeddings
-except ImportError:
-    from langchain_community.embeddings import HuggingFaceEmbeddings
-
+from langchain_community.embeddings import FastEmbedEmbeddings
 load_dotenv()
 
 class PlantTreatmentRAG:
@@ -22,7 +18,7 @@ class PlantTreatmentRAG:
         self.kb_path = knowledge_base_path
         self.persist_dir = persist_directory
 
-        self.embeddings = HuggingFaceEmbeddings(
+        self.embeddings = FastEmbedEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2"
         )
 
