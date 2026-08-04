@@ -828,7 +828,7 @@
     detailEl.style.display = 'none';
     listEl.style.display = 'block';
     try {
-      const response = await fetch(`http://localhost:8000/history?page=${page}&limit=7`);
+      const response = await fetch(`/history?page=${page}&limit=7`);
       const data = await response.json();
       if (data.success && data.history && data.history.length > 0) {
         emptyEl.style.display = 'none';
@@ -901,7 +901,7 @@
       </div>
       <button class="btn-ghost" onclick="closeHistoryDetail()" style="margin-top:8px;">← Back to list</button>
     `;
-    fetch(`http://localhost:8000/history/treatment/${logId}`)
+    fetch(`/history/treatment/${logId}`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.treatment) {
@@ -959,7 +959,7 @@
     const formData = new FormData();
     formData.append('file', uploadedFile);
     try {
-      const response = await fetch('http://localhost:8000/diagnose', {
+      const response = await fetch('/diagnose', {
         method: 'POST',
         body: formData
       });
