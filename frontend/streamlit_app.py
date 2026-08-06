@@ -18,7 +18,9 @@ def get_base64_image(image_path):
         data = f.read()
     return base64.b64encode(data).decode()
 
-bg_image = get_base64_image("/Users/jessekariuki/Downloads/isolated-green-monstera-leaf-transparent-background-free-png.png")
+import os
+bg_image_path = os.path.join(os.path.dirname(__file__), "assets", "leaf.png")
+bg_image = get_base64_image(bg_image_path)
 
 # ---------- Custom CSS ----------
 st.markdown(f"""
@@ -114,7 +116,8 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------- API URL ----------
-API_URL = "http://localhost:8000/diagnose"
+API_URL = os.environ.get("BACKEND_URL", "http://localhost:8000") + "/diagnose"
+
 
 # ---------- Session State ----------
 if "page" not in st.session_state:
@@ -242,7 +245,9 @@ def page_results():
     if result.get("success") and result.get("confidence", 0) >= 0.70:
         disease = result.get("disease", "Unknown")
         confidence = result.get("confidence", 0.0)
-        treatment = result.get("treatment", "No treatment available.")
+        treatment_organic = result.get("treatment_organic", "")
+        treatment_chemical = result.get("treatment_chemical", "")
+        treatment_prevention = result.get("treatment_prevention", "")
         disclaimer = result.get("disclaimer", "")
         message = result.get("message", "")
         
@@ -256,8 +261,14 @@ def page_results():
         </div>
         """, unsafe_allow_html=True)
         
-        st.markdown("### 💊 Treatment Plan")
-        st.markdown(treatment)
+        st.markdown("### 💊 Organic Treatment")
+        st.markdown(treatment_organic)
+
+        st.markdown("### 🧪 Chemical Treatment")
+        st.markdown(treatment_chemical)
+
+        st.markdown("### 🛡️ Prevention")
+        st.markdown(treatment_prevention)
         
         if disclaimer:
             st.markdown(f'<div class="disclaimer-box">⚠️ {disclaimer}</div>', unsafe_allow_html=True)

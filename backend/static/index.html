@@ -828,7 +828,7 @@
     detailEl.style.display = 'none';
     listEl.style.display = 'block';
     try {
-      const response = await fetch(`/history?page=${page}&limit=7`);
+      const response = await fetch(`http://localhost:8000/history?page=${page}&limit=7`);
       const data = await response.json();
       if (data.success && data.history && data.history.length > 0) {
         emptyEl.style.display = 'none';
@@ -901,7 +901,7 @@
       </div>
       <button class="btn-ghost" onclick="closeHistoryDetail()" style="margin-top:8px;">← Back to list</button>
     `;
-    fetch(`/history/treatment/${logId}`)
+    fetch(`http://localhost:8000/history/treatment/${logId}`)
       .then(res => res.json())
       .then(data => {
         if (data.success && data.treatment) {
@@ -959,7 +959,7 @@
     const formData = new FormData();
     formData.append('file', uploadedFile);
     try {
-      const response = await fetch('/diagnose', {
+      const response = await fetch('http://localhost:8000/diagnose', {
         method: 'POST',
         body: formData
       });
@@ -974,61 +974,167 @@
       alert('Connection error: ' + err.message);
     }
   }
+  // ---------- Treatment Pagination ----------
+  let treatmentData = {
+    organic: { steps: [], currentPage: 0, disease: '' },
+    chemical: { steps: [], currentPage: 0, disease: '' },
+    prevention: { steps: [], currentPage: 0, disease: '' }
+  };
+  const STEPS_PER_PAGE = 8;
+
+  function parseSteps(text) {
+    if (!text || text.trim() === '') return [];
+    const lines = text.split('\n');
+    let steps = [];
+    let currentStep = '';
+    let stepNumber = 0;
+    for (let line of lines) {
+      const trimmed = line.trim();
+      if (trimmed === '') continue;
+      const match = trimmed.match(/^(\d+)[\.\)]\s*/);
+      if (match) {
+        if (currentStep) steps.push(currentStep.trim());
+        stepNumber = parseInt(match[1]);
+        currentStep = trimmed.replace(match[0], '').trim();
+      } else {
+        if (stepNumber > 0) {
+          currentStep += ' ' + trimmed;
+        } else {
+          steps.push(trimmed);
+        }
+      }
+    }
+    if (currentStep) steps.push(currentStep.trim());
+    if (steps.length === 0) {
+      steps = text.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    }
+    return steps;
+  }
+
+  function renderTabSteps(tabId) {
+    const data = treatmentData[tabId];
+    if (!data) return;
+    const steps = data.steps;
+    const currentPage = data.currentPage;
+    const totalPages = Math.ceil(steps.length / STEPS_PER_PAGE);
+    let page = currentPage;
+    if (page >= totalPages) page = totalPages - 1;
+    if (page < 0) page = 0;
+    data.currentPage = page;
+    const start = page * STEPS_PER_PAGE;
+    const end = Math.min(start + STEPS_PER_PAGE, steps.length);
+    const pageSteps = steps.slice(start, end);
+    const stepsContainer = document.getElementById(tabId + '-steps');
+    const paginationContainer = document.getElementById(tabId + '-pagination');
+    if (!stepsContainer || !paginationContainer) return;
+    let stepsHtml = '';
+    if (pageSteps.length === 0) {
+      stepsHtml = '<span>No steps available.</span>';
+    } else {
+      stepsHtml = pageSteps.map(step => `<span class="step">${step}</span>`).join('');
+    }
+    stepsContainer.innerHTML = stepsHtml;
+    let pagHtml = '';
+    if (totalPages > 1) {
+      pagHtml = `
+        <button onclick="changeStepPage('${tabId}', -1)" ${page === 0 ? 'disabled' : ''}>◀ Prev</button>
+        <span>Page ${page+1} of ${totalPages}</span>
+        <button onclick="changeStepPage('${tabId}', 1)" ${page === totalPages-1 ? 'disabled' : ''}>Next ▶</button>
+      `;
+    }
+    paginationContainer.innerHTML = pagHtml;
+  }
+
+  function changeStepPage(tabId, delta) {
+    const data = treatmentData[tabId];
+    if (!data) return;
+    const newPage = data.currentPage + delta;
+    const totalPages = Math.ceil(data.steps.length / STEPS_PER_PAGE);
+    if (newPage < 0 || newPage >= totalPages) return;
+    data.currentPage = newPage;
+    renderTabSteps(tabId);
+  }
+
+
   // ---------- Display Results ----------
   function showResults(result) {
+    // Show the diagnosis page results
     document.getElementById('no-diagnosis-msg').style.display = 'none';
     document.getElementById('diagnosis-results').style.display = 'block';
+    
     if (result.success && result.confidence >= 0.70) {
-      const diseaseRaw = result.disease || 'Unknown';
-      const diseaseClean = cleanDiseaseName(diseaseRaw);
-      document.getElementById('diag-disease').innerText = diseaseClean;
-      document.getElementById('diag-confidence').innerText = (result.confidence * 100).toFixed(1) + '%';
-      document.getElementById('diag-desc').innerHTML = 'Showing signs of <strong>' + diseaseClean + '</strong>.';
-      const formatText = function(text) {
-        if (!text) return 'No information available.';
-        let cleaned = text.replace(/_/g, ' ');
-        cleaned = cleaned.replace(/\s+/g, ' ').trim();
-        cleaned = cleaned.replace(/\*\*/g, '');
-        let parts = cleaned.split(/(\d+\.\s*)/);
-        let steps = [], currentStep = '';
-        for (let i = 0; i < parts.length; i++) {
-          if (parts[i].match(/^\d+\.\s*$/)) {
-            if (currentStep) { steps.push(currentStep.trim()); currentStep = ''; }
-            currentStep = parts[i];
-          } else if (parts[i].trim().length > 0) { currentStep += parts[i]; }
+        // ---- SUCCESSFUL DIAGNOSIS ----
+        const diseaseRaw = result.disease || 'Unknown';
+        const diseaseClean = cleanDiseaseName(diseaseRaw);
+        
+        document.getElementById('diag-disease').innerText = diseaseClean;
+        document.getElementById('diag-confidence').innerText = (result.confidence * 100).toFixed(1) + '%';
+        document.getElementById('diag-desc').innerHTML = 'Showing signs of <strong>' + diseaseClean + '</strong>.';
+        
+        // ---- DISPLAY TREATMENT DIRECTLY (no pagination) ----
+        // Get treatment text from backend
+        const organicText = result.treatment_organic || 'No organic treatment found.';
+        const chemicalText = result.treatment_chemical || 'No chemical treatment found.';
+        const preventionText = result.treatment_prevention || 'No prevention information found.';
+        
+        // Format: replace newlines with <br> for HTML display
+        const formatText = function(text) {
+            if (!text) return 'No information available.';
+            return text.replace(/\n/g, '<br>');
+        };
+        
+        // Set disease names in tab headers
+        document.getElementById('organic-disease').innerText = diseaseClean;
+        document.getElementById('chemical-disease').innerText = diseaseClean;
+        document.getElementById('prevention-disease').innerText = diseaseClean;
+        
+        // Display the treatment text
+        document.getElementById('organic-steps').innerHTML = formatText(organicText);
+        document.getElementById('chemical-steps').innerHTML = formatText(chemicalText);
+        document.getElementById('prevention-steps').innerHTML = formatText(preventionText);
+        
+        // Clear pagination controls (they are not used in this version)
+        
+        // Ensure the active tab is visible
+        const activeTab = document.querySelector('.tab.active');
+        if (activeTab) {
+            const tabId = activeTab.textContent.toLowerCase().trim();
+            ['organic', 'chemical', 'prevention'].forEach(id => {
+                document.getElementById('tab-' + id).style.display = id === tabId ? 'block' : 'none';
+            });
+        } else {
+            // Default to organic
+            document.getElementById('tab-organic').style.display = 'block';
+            document.getElementById('tab-chemical').style.display = 'none';
+            document.getElementById('tab-prevention').style.display = 'none';
         }
-        if (currentStep) steps.push(currentStep.trim());
-        if (steps.length === 0) {
-          let lines = cleaned.split('\n').filter(line => line.trim().length > 0);
-          for (let line of lines) { line = line.trim(); if (line.length > 0) steps.push(line); }
-        }
-        if (steps.length > 0) {
-          let formattedSteps = [];
-          for (let step of steps) formattedSteps.push('<span class="step">' + step + '</span>');
-          return formattedSteps.join('');
-        }
-        return cleaned;
-      };
-      document.getElementById('organic-disease').innerText = diseaseClean;
-      document.getElementById('organic-steps').innerHTML = formatText(result.treatment_organic || 'No organic treatment found.');
-      document.getElementById('chemical-disease').innerText = diseaseClean;
-      document.getElementById('chemical-steps').innerHTML = formatText(result.treatment_chemical || 'No chemical treatment found.');
-      document.getElementById('prevention-disease').innerText = diseaseClean;
-      document.getElementById('prevention-steps').innerHTML = formatText(result.treatment_prevention || 'No prevention information found.');
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab')[0].classList.add('active');
-      ['organic', 'chemical', 'prevention'].forEach(id => {
-        document.getElementById('tab-' + id).style.display = id === 'organic' ? 'block' : 'none';
-      });
-      showDiagnosisPage();
+        
+        showDiagnosisPage();
+        
     } else {
-      const msg = result.message || 'Low confidence. Unable to diagnose.';
-      document.getElementById('diag-disease').innerText = '—';
-      document.getElementById('diag-confidence').innerText = '—';
-      document.getElementById('diag-desc').innerHTML = '❌ <strong>' + msg + '</strong>';
-      showDiagnosisPage();
+        // ---- FAILED DIAGNOSIS - CLEAR EVERYTHING ----
+        const msg = result.message || 'Low confidence. Unable to diagnose.';
+        
+        // Clear diagnosis display
+        document.getElementById('diag-disease').innerText = '—';
+        document.getElementById('diag-confidence').innerText = '—';
+        document.getElementById('diag-desc').innerHTML = '❌ <strong>' + msg + '</strong>';
+        
+        // Reset disease names in tab headers
+        document.getElementById('organic-disease').innerText = '—';
+        document.getElementById('chemical-disease').innerText = '—';
+        document.getElementById('prevention-disease').innerText = '—';
+        
+        // Reset step displays with "No diagnosis" message
+        document.getElementById('organic-steps').innerHTML = '<span>No diagnosis available. Upload a leaf image first.</span>';
+        document.getElementById('chemical-steps').innerHTML = '<span>No diagnosis available. Upload a leaf image first.</span>';
+        document.getElementById('prevention-steps').innerHTML = '<span>No diagnosis available. Upload a leaf image first.</span>';
+        
+        // Clear pagination controls
+        
+        showDiagnosisPage();
     }
-  }
+}
   // ---------- Tab Switching ----------
   function switchTab(btn, tabId) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
