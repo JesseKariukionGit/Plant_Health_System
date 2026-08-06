@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-multipart
+tensorflow-cpu
+numpy
+Pillow
+python-dotenv
+requests
+langchain
+langchain-groq
+langchain-community
+chromadb
+pypdf
+sentence-transformers
