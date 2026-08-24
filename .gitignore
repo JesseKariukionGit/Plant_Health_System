@@ -6,3 +6,11 @@ env/
 .DS_Store
 .ipynb_checkpoints/
 *.log
+# Databases & Vector Stores (never commit these!)
+backend/chroma_db/
+backend/logs/*.db
+*.db
+*.sqlite3
+
+# Frontend leftover
+frontend/streamlit_app.py

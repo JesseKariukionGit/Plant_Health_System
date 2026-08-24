@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: plant-health-ai
+    runtime: python
+    repo: https://github.com/JesseKariukionGit/Plant_Health_System
+    plan: free
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      python prestart.py
+    startCommand: uvicorn backend.app:app --host 0.0.0.0 --port $PORT
+    disk:
+      name: chroma-data
+      mountPath: /opt/render/project/src/backend/chroma_db
+      sizeGB: 1
