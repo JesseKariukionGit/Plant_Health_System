@@ -37,10 +37,8 @@ classifier = PlantDiseaseClassifier(
 )
 
 print("Loading RAG pipeline...")
-rag = PlantTreatmentRAG(
-    knowledge_base_path="./knowledge_base",
-    persist_directory="./chroma_db"
-)
+# UPDATED: No arguments needed – rag_pipeline.py now auto‑detects paths
+rag = PlantTreatmentRAG()
 
 CONFIDENCE_THRESHOLD = 0.70
 
